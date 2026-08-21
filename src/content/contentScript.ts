@@ -1,9 +1,16 @@
-import { fillField, rollbackFilled, type RollbackEntry } from "./filler";
-import { findFieldElements, scanPage } from "./scanner";
+import { fillField, rollbackFilled, rollbackFilledAsync, type RollbackEntry } from "./filler";
+import { findFieldElements, findFieldNodes, scanPage } from "./scanner";
+import { getComboboxDisplayValue, isChoiceButtonPressed } from "./widgets";
 import { shouldFill } from "../shared/confidence";
 import { mapFields } from "../shared/fieldMatchers";
-import { MessageTypes, type ContentRequest, type ContentResponse } from "../shared/messages";
-import { getActiveProfile, getActiveProfileName } from "../shared/storage";
+import {
+  MessageTypes,
+  describeEmbeddedBoard,
+  type ContentRequest,
+  type ContentResponse,
+  type EmbeddedBoard
+} from "../shared/messages";
+import { getActiveProfile, getActiveProfileName, isSampleProfile } from "../shared/storage";
 import type { DetectedField, FieldMapping, FillResult } from "../shared/types";
 import { getSiteAdapter } from "../sites";
 import { renderSidebar } from "../sidebar/renderSidebar";
@@ -41,7 +48,9 @@ function initContentScript(): void {
     }
 
     if (request.type === MessageTypes.Clear) {
-      const cleared = rollbackFilled(rollbackEntries);
+      // The message path can wait for a widget to reopen its menu, so it clears
+      // strictly more than the sidebar button's synchronous path can.
+      const cleared = await rollbackFilledAsync(rollbackEntries);
       return { ok: true, cleared };
     }
 
@@ -55,8 +64,29 @@ function initContentScript(): void {
 
     const profile = await getActiveProfile();
     const profileName = await getActiveProfileName();
+
+    // Detect stays available with the placeholder profile so a page can be explored
+    // safely, but filling it into a real application would send a fake identity.
+    if (request.type === MessageTypes.Autofill && isSampleProfile(profile)) {
+      return {
+        ok: false,
+        error:
+          `Nothing was filled: profile "${profileName}" still holds the placeholder sample data. ` +
+          "Open Manage profile versions, replace the sample name and email with your real details, then run Autofill again."
+      };
+    }
+
     const adapter = getSiteAdapter(window.location.href);
     const detected = scanPage(adapter);
+
+    // Greenhouse/Lever/Ashby/Workday forms are often embedded in a cross-origin iframe
+    // on a company careers page. If this frame has nothing fillable but hosts one of
+    // those boards, point at the frame URL instead of reporting an empty page.
+    if (detected.length === 0) {
+      const embedded = findEmbeddedBoards();
+      if (embedded.length > 0) return { ok: true, embedded };
+    }
+
     const mappings = mapFields(detected, profile);
 
     if (request.type === MessageTypes.Detect) {
@@ -92,7 +122,7 @@ function initContentScript(): void {
           continue;
         }
 
-        const didFill = fillField(mapping, field, rollbackEntries);
+        const didFill = await fillField(mapping, field, rollbackEntries);
         if (didFill) {
           filled.push(mapping);
         } else {
@@ -119,9 +149,35 @@ function initContentScript(): void {
   }
 }
 
+function findEmbeddedBoards(): EmbeddedBoard[] {
+  const boards: EmbeddedBoard[] = [];
+  const seen = new Set<string>();
+  for (const frame of Array.from(document.querySelectorAll("iframe"))) {
+    const board = describeEmbeddedBoard(frame.getAttribute("src"), document.baseURI);
+    if (!board || seen.has(board.url)) continue;
+    seen.add(board.url);
+    boards.push(board);
+  }
+  return boards;
+}
+
 function findMissingRequired(fields: DetectedField[]): DetectedField[] {
   return fields.filter((field) => {
     if (!field.required) return false;
+
+    if (field.elementType === "combobox") {
+      const control = findFieldNodes(field.id)[0];
+      // A react-select input's own value is always empty; the chosen option is
+      // rendered next to it, so reading `.value` would report every filled
+      // dropdown as still missing.
+      return control ? !getComboboxDisplayValue(control) : false;
+    }
+
+    if (field.elementType === "buttongroup") {
+      const buttons = findFieldNodes(field.id);
+      return buttons.length > 0 && !buttons.some(isChoiceButtonPressed);
+    }
+
     const elements = findFieldElements(field.id);
     if (elements.length === 0) return false;
 

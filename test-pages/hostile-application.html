@@ -1,0 +1,382 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Hostile Job Application</title>
+    <style>
+      * { box-sizing: border-box; }
+      body { margin: 0; background: #f3f6fa; color: #172033; font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+      main { max-width: 860px; margin: 0 auto; padding: 28px 18px 60px; }
+      h1 { margin: 0 0 6px; font-size: 26px; }
+      p.lede { margin: 0 0 20px; color: #475569; }
+      form { display: grid; gap: 18px; }
+      section { border: 1px solid #cbd5e1; border-radius: 8px; background: #fff; padding: 16px; }
+      label, .ashby-label { display: block; font-weight: 600; margin-bottom: 6px; }
+      input[type="text"], .ashby-input { width: 100%; padding: 8px; border: 1px solid #94a3b8; border-radius: 6px; }
+      .select__control { display: flex; align-items: center; gap: 8px; border: 1px solid #94a3b8; border-radius: 6px; padding: 4px 8px; background: #fff; cursor: pointer; }
+      .select__value-container { display: flex; align-items: center; gap: 6px; flex: 1; min-height: 26px; }
+      .select__input { border: 0; outline: none; flex: 1; min-width: 40px; background: transparent; }
+      .select__single-value { color: #0f172a; }
+      .select__placeholder { color: #94a3b8; }
+      .select__clear-indicator { color: #64748b; padding: 0 4px; cursor: pointer; }
+      .select__menu { position: absolute; z-index: 20; margin-top: 2px; min-width: 240px; background: #fff; border: 1px solid #cbd5e1; border-radius: 6px; box-shadow: 0 8px 18px rgba(15, 23, 42, 0.14); }
+      .select__option { padding: 8px 10px; cursor: pointer; }
+      .select__option:hover { background: #e2e8f0; }
+      .select__requiredInput { opacity: 0; position: absolute; width: 1px; height: 1px; }
+      .ashby-application-form-input-yesno button { padding: 6px 18px; border: 1px solid #94a3b8; background: #fff; border-radius: 6px; cursor: pointer; }
+      .ashby-application-form-input-yesno button[aria-pressed="true"] { background: #1d4ed8; border-color: #1d4ed8; color: #fff; }
+      .button-group button { padding: 6px 18px; margin-right: 8px; }
+      .radio-row label { font-weight: 400; display: inline-block; margin-right: 16px; }
+      .actions { display: flex; gap: 10px; }
+      .actions button { padding: 10px 18px; border-radius: 6px; border: 0; background: #1d4ed8; color: #fff; font-weight: 600; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Hostile Job Application</h1>
+      <p class="lede">
+        A deliberately unfriendly form: no native selects, portal-rendered menus that ignore
+        <code>element.click()</code>, buttons standing in for radios, a label pointing at an id that does
+        not exist, options that load late, and a virtualized list.
+      </p>
+
+      <form id="hostile-form">
+        <section>
+          <label for="first_name">First name</label>
+          <input type="text" id="first_name" name="first_name" placeholder="Given name" />
+        </section>
+
+        <!-- Ashby trap: label[for] points at an id nothing carries, and the input
+             has neither an id nor a name. Only the wrapper knows the question. -->
+        <section class="ashby-application-form-field-entry" data-field-path="_systemfield_name">
+          <label for="_systemfield_name">Full name</label>
+          <input type="text" class="ashby-input" placeholder="Your name" />
+        </section>
+
+        <!-- react-select style: opens on mousedown or ArrowDown, never on click. -->
+        <section
+          class="select-field"
+          data-select-field="work_auth"
+          data-listbox-id="react-select-work_auth-listbox"
+          data-select-options="Yes|No|Yes, with sponsorship"
+          data-select-open="both"
+        >
+          <label id="work_auth-label" for="work_auth">Are you legally authorized to work in the United States?</label>
+          <div class="select__control">
+            <div class="select__value-container">
+              <div class="select__placeholder">Select...</div>
+              <input
+                class="select__input"
+                id="work_auth"
+                role="combobox"
+                aria-autocomplete="list"
+                aria-expanded="false"
+                aria-haspopup="true"
+                aria-labelledby="work_auth-label"
+                autocomplete="off"
+              />
+            </div>
+            <div class="select__clear-indicator" aria-label="Clear value">&times;</div>
+            <input class="select__requiredInput" aria-hidden="true" tabindex="-1" required value="" />
+          </div>
+        </section>
+
+        <!-- Near-match trap: "Yes" is not on offer, only "Yes, with sponsorship". -->
+        <section
+          class="select-field"
+          data-select-field="sponsorship_trap"
+          data-listbox-id="react-select-sponsorship_trap-listbox"
+          data-select-options="Yes, with sponsorship|No, I do not require sponsorship"
+          data-select-open="keyboard"
+        >
+          <label id="sponsorship_trap-label" for="sponsorship_trap">Do you need visa sponsorship of any kind?</label>
+          <div class="select__control">
+            <div class="select__value-container">
+              <input
+                class="select__input"
+                id="sponsorship_trap"
+                role="combobox"
+                aria-autocomplete="list"
+                aria-expanded="false"
+                aria-haspopup="true"
+                aria-labelledby="sponsorship_trap-label"
+                autocomplete="off"
+              />
+            </div>
+          </div>
+        </section>
+
+        <!-- Options arrive 250ms after the menu opens: an empty menu means
+             "still loading", not "no match". -->
+        <section
+          class="select-field"
+          data-select-field="school"
+          data-listbox-id="react-select-school-listbox"
+          data-select-options="Example University|Northwood University|Example State College"
+          data-select-async="true"
+          data-select-open="both"
+        >
+          <label id="school-label" for="school">School</label>
+          <div class="select__control">
+            <div class="select__value-container">
+              <input
+                class="select__input"
+                id="school"
+                role="combobox"
+                aria-autocomplete="list"
+                aria-expanded="false"
+                aria-haspopup="true"
+                aria-labelledby="school-label"
+                autocomplete="off"
+              />
+            </div>
+          </div>
+        </section>
+
+        <!-- Ashby location: no id, no name, label[for] resolves to nothing, and the
+             menu is only discoverable through aria-controls once it is open. -->
+        <section
+          class="ashby-application-form-field-entry select-field"
+          data-field-path="_systemfield_location"
+          data-select-field="location"
+          data-listbox-id="ashby-location-menu"
+          data-select-options="San Francisco, CA|Austin, TX|Austin Metro Area|Remote"
+          data-select-open="keyboard"
+          data-aria-controls="true"
+        >
+          <label for="_systemfield_location">Location</label>
+          <div class="select__control">
+            <div class="select__value-container">
+              <input class="select__input" role="combobox" aria-autocomplete="list" aria-expanded="false" autocomplete="off" />
+            </div>
+          </div>
+        </section>
+
+        <!-- Virtualized: only the first two options are ever in the DOM until the
+             list is narrowed by typing. -->
+        <section
+          class="select-field"
+          data-select-field="alma_mater"
+          data-listbox-id="react-select-alma_mater-listbox"
+          data-select-options="Aardvark Institute|Baseline College|Example University|Northwood University|Yarrow Academy|Zenith Polytechnic"
+          data-select-window="2"
+          data-select-open="both"
+        >
+          <label id="alma_mater-label" for="alma_mater">Previous school</label>
+          <div class="select__control">
+            <div class="select__value-container">
+              <input
+                class="select__input"
+                id="alma_mater"
+                role="combobox"
+                aria-autocomplete="list"
+                aria-expanded="false"
+                aria-haspopup="true"
+                aria-labelledby="alma_mater-label"
+                autocomplete="off"
+              />
+            </div>
+          </div>
+        </section>
+
+        <!-- Wired to nothing at all: the menu never opens, whatever we send it. -->
+        <section class="select-field" data-select-field="stubborn" data-select-open="never">
+          <label id="stubborn-label" for="stubborn">Which office do you prefer?</label>
+          <div class="select__control">
+            <div class="select__value-container">
+              <input
+                class="select__input"
+                id="stubborn"
+                role="combobox"
+                aria-autocomplete="list"
+                aria-expanded="false"
+                aria-haspopup="true"
+                aria-labelledby="stubborn-label"
+                autocomplete="off"
+              />
+            </div>
+          </div>
+        </section>
+
+        <!-- Ashby yes/no: the buttons are the field. The checkbox beside them is a
+             decoy that React never reads back. -->
+        <section class="ashby-application-form-field-entry" data-field-path="9822f66b-sponsorship">
+          <label for="9822f66b-sponsorship">Will you now or in the future require sponsorship for employment?</label>
+          <div class="ashby-application-form-input-yesno">
+            <button type="button" aria-pressed="false" data-option="yes">Yes</button>
+            <button type="button" aria-pressed="false" data-option="no">No</button>
+            <input type="checkbox" tabindex="-1" name="9822f66b-sponsorship" />
+          </div>
+        </section>
+
+        <section>
+          <div class="ashby-label">Preferred work setting</div>
+          <div class="radio-row">
+            <label><input type="radio" value="Remote" /> Remote</label>
+            <label><input type="radio" value="Onsite" /> Onsite</label>
+          </div>
+        </section>
+
+        <!-- Wizard navigation dressed up to look like a choice group. Nothing here
+             may ever be clicked automatically. -->
+        <section>
+          <div class="button-group">
+            <button type="button" data-option="back">Back</button>
+            <button type="button" data-option="continue">Continue</button>
+          </div>
+        </section>
+
+        <section class="actions">
+          <button type="submit" id="submit-application">Submit application</button>
+          <button type="button" id="save-draft">Save draft</button>
+        </section>
+      </form>
+    </main>
+
+    <script>
+      (function () {
+        var portal = document.createElement("div");
+        portal.id = "portal-root";
+        document.body.appendChild(portal);
+
+        function wireSelect(section) {
+          var options = (section.getAttribute("data-select-options") || "").split("|").filter(Boolean);
+          var openMode = section.getAttribute("data-select-open") || "both";
+          var isAsync = section.getAttribute("data-select-async") === "true";
+          var windowSize = parseInt(section.getAttribute("data-select-window") || "0", 10);
+          var usesAriaControls = section.getAttribute("data-aria-controls") === "true";
+          var listboxId = section.getAttribute("data-listbox-id");
+          var input = section.querySelector(".select__input");
+          var control = section.querySelector(".select__control");
+          var valueContainer = section.querySelector(".select__value-container");
+          var loaded = isAsync ? [] : options;
+          var menu = null;
+          var timer = null;
+
+          function render() {
+            if (!menu) return;
+            menu.innerHTML = "";
+            var filter = (input.value || "").toLowerCase();
+            var visible = loaded.filter(function (text) {
+              return !filter || text.toLowerCase().indexOf(filter) !== -1;
+            });
+            // Virtualization: only a window of the list is ever in the DOM.
+            if (windowSize > 0) visible = visible.slice(0, windowSize);
+            visible.forEach(function (text, index) {
+              var option = document.createElement("div");
+              option.setAttribute("role", "option");
+              option.className = "select__option";
+              option.id = listboxId + "-option-" + index;
+              option.textContent = text;
+              option.addEventListener("click", function () {
+                choose(text);
+              });
+              menu.appendChild(option);
+            });
+          }
+
+          function open() {
+            if (menu) return;
+            menu = document.createElement("div");
+            menu.id = listboxId;
+            menu.className = "select__menu";
+            menu.setAttribute("role", "listbox");
+            // Rendered in a portal at the end of <body>, not inside the field.
+            portal.appendChild(menu);
+            input.setAttribute("aria-expanded", "true");
+            if (usesAriaControls) input.setAttribute("aria-controls", listboxId);
+            if (isAsync && loaded.length === 0) {
+              timer = setTimeout(function () {
+                loaded = options;
+                render();
+              }, 250);
+            } else {
+              render();
+            }
+          }
+
+          function close() {
+            if (timer) {
+              clearTimeout(timer);
+              timer = null;
+            }
+            if (menu && menu.parentNode) menu.parentNode.removeChild(menu);
+            menu = null;
+            input.setAttribute("aria-expanded", "false");
+            input.removeAttribute("aria-controls");
+            // Typed text that was never committed is discarded, exactly as
+            // react-select does: typing alone fills nothing.
+            input.value = "";
+          }
+
+          function choose(text) {
+            var display = valueContainer.querySelector(".select__single-value");
+            if (!display) {
+              display = document.createElement("div");
+              display.className = "select__single-value";
+              valueContainer.insertBefore(display, valueContainer.firstChild);
+            }
+            display.textContent = text;
+            var placeholder = valueContainer.querySelector(".select__placeholder");
+            if (placeholder) placeholder.style.display = "none";
+            var shim = section.querySelector(".select__requiredInput");
+            if (shim && shim.parentNode) shim.parentNode.removeChild(shim);
+            close();
+          }
+
+          function clearValue() {
+            var display = valueContainer.querySelector(".select__single-value");
+            if (display && display.parentNode) display.parentNode.removeChild(display);
+            var placeholder = valueContainer.querySelector(".select__placeholder");
+            if (placeholder) placeholder.style.display = "";
+          }
+
+          var clear = section.querySelector(".select__clear-indicator");
+          if (clear) {
+            clear.addEventListener("mousedown", function (event) {
+              event.stopPropagation();
+              clearValue();
+            });
+          }
+
+          if (openMode === "never") return;
+
+          input.addEventListener("keydown", function (event) {
+            if (event.key === "ArrowDown") open();
+            else if (event.key === "Escape") close();
+          });
+          input.addEventListener("input", render);
+
+          // Only mousedown opens the control. A plain element.click() produces no
+          // mousedown, so it does nothing here — the same as the real widget.
+          if (openMode === "both") {
+            control.addEventListener("mousedown", function () {
+              open();
+            });
+          }
+        }
+
+        Array.prototype.forEach.call(document.querySelectorAll("[data-select-field]"), wireSelect);
+
+        Array.prototype.forEach.call(document.querySelectorAll(".ashby-application-form-input-yesno"), function (group) {
+          var buttons = group.querySelectorAll("button[data-option]");
+          var decoy = group.querySelector("input[type='checkbox']");
+          Array.prototype.forEach.call(buttons, function (button) {
+            button.addEventListener("click", function () {
+              Array.prototype.forEach.call(buttons, function (other) {
+                other.setAttribute("aria-pressed", String(other === button));
+              });
+              if (decoy) decoy.checked = button.getAttribute("data-option") === "yes";
+            });
+          });
+        });
+
+        document.getElementById("hostile-form").addEventListener("submit", function (event) {
+          event.preventDefault();
+          window.alert("This demo form never submits anything.");
+        });
+      })();
+    </script>
+  </body>
+</html>

@@ -4,7 +4,8 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { shouldFill } from "../shared/confidence";
 import { mapFields } from "../shared/fieldMatchers";
 import { sampleProfile } from "../shared/sampleProfile";
-import type { FieldMapping } from "../shared/types";
+import { filledProfile } from "./testProfile";
+import type { CandidateProfile, FieldMapping } from "../shared/types";
 import { fillField, rollbackFilled, type RollbackEntry } from "./filler";
 import { scanPage } from "./scanner";
 
@@ -22,9 +23,11 @@ function select(name: string): HTMLSelectElement {
   return element;
 }
 
-function autofill(): { filled: FieldMapping[]; unsure: FieldMapping[]; skipped: FieldMapping[]; rollback: RollbackEntry[] } {
+async function autofill(
+  profile: CandidateProfile = filledProfile
+): Promise<{ filled: FieldMapping[]; unsure: FieldMapping[]; skipped: FieldMapping[]; rollback: RollbackEntry[] }> {
   const detected = scanPage();
-  const mappings = mapFields(detected, sampleProfile);
+  const mappings = mapFields(detected, profile);
   const rollback: RollbackEntry[] = [];
   const filled: FieldMapping[] = [];
   const unsure: FieldMapping[] = [];
@@ -41,7 +44,7 @@ function autofill(): { filled: FieldMapping[]; unsure: FieldMapping[]; skipped: 
       unsure.push(mapping);
       continue;
     }
-    if (fillField(mapping, field, rollback)) {
+    if (await fillField(mapping, field, rollback)) {
       filled.push(mapping);
     } else {
       unsure.push(mapping);
@@ -57,54 +60,62 @@ describe("autofill on the fake application page", () => {
     document.body.innerHTML = bodyMatch ? bodyMatch[1] : fixture;
   });
 
-  it("fills contact information from the sample profile", () => {
-    autofill();
-    expect(input("first_name").value).toBe("Alex");
-    expect(input("last_name").value).toBe("Example");
-    expect(input("email").value).toBe("alex.example@example.com");
-    expect(input("phone").value).toBe("555-010-1234");
-    expect(input("location").value).toBe("San Francisco, CA");
-    expect(input("linkedin_url").value).toBe(sampleProfile.personal.linkedin);
-    expect(input("github").value).toBe(sampleProfile.personal.github);
-    expect(input("portfolio").value).toBe(sampleProfile.personal.portfolio);
+  it("fills contact information from the profile", async () => {
+    await autofill();
+    expect(input("first_name").value).toBe("Dana");
+    expect(input("last_name").value).toBe("Ruiz");
+    expect(input("email").value).toBe(filledProfile.personal.email);
+    expect(input("phone").value).toBe(filledProfile.personal.phone);
+    expect(input("location").value).toBe("Austin, TX");
+    expect(input("linkedin_url").value).toBe(filledProfile.personal.linkedin);
+    expect(input("github").value).toBe(filledProfile.personal.github);
+    expect(input("portfolio").value).toBe(filledProfile.personal.portfolio);
   });
 
-  it("answers authorization selects from the profile", () => {
-    autofill();
+  it("leaves the shipped sample's placeholder details for review instead of filling them", async () => {
+    const { unsure } = await autofill(sampleProfile);
+
+    expect(input("last_name").value).toBe("");
+    expect(input("email").value).toBe("");
+    expect(unsure.some((mapping) => mapping.kind === "email")).toBe(true);
+  });
+
+  it("answers authorization selects from the profile", async () => {
+    await autofill();
     expect(select("authorized_us").value).toBe("Yes");
     expect(select("requires_sponsorship").value).toBe("No");
   });
 
-  it("fills experience, education, and exact years of experience", () => {
-    autofill();
-    expect(input("experience_company").value).toBe("Example Software Co.");
+  it("fills experience, education, and exact years of experience", async () => {
+    await autofill();
+    expect(input("experience_company").value).toBe("Vector Labs");
     expect(input("experience_title").value).toBe("Frontend Engineer");
     expect(input("experience_start_date").value).toBe("06/2022");
     expect(input("experience_end_date").value).toBe("Present");
     expect(input("react_years").value).toBe("4");
-    expect(input("education_school").value).toBe("Example University");
+    expect(input("education_school").value).toBe("Northwood University");
     expect(input("education_degree").value).toBe("Bachelor of Science");
     expect(input("education_end_date").value).toBe("05/2020");
   });
 
-  it("selects saved EEO answers when the options match", () => {
-    autofill();
+  it("selects saved EEO answers when the options match", async () => {
+    await autofill();
     expect(select("eeo_gender").value).toBe("I don't wish to answer");
     expect(select("eeo_race").value).toBe("I don't wish to answer");
     expect(select("eeo_veteran").value).toBe("I don't wish to answer");
     expect(select("eeo_disability").value).toBe("I don't wish to answer");
   });
 
-  it("never touches uploads, essays, or buttons", () => {
-    const { skipped } = autofill();
+  it("never touches uploads, essays, or buttons", async () => {
+    const { skipped } = await autofill();
     expect(input("resume").value).toBe("");
     expect(input("cover_letter_file").value).toBe("");
     expect(document.querySelector<HTMLTextAreaElement>("textarea[name='why_company']")!.value).toBe("");
     expect(skipped.length).toBeGreaterThanOrEqual(3);
   });
 
-  it("rolls back every value it filled", () => {
-    const { filled, rollback } = autofill();
+  it("rolls back every value it filled", async () => {
+    const { filled, rollback } = await autofill();
     expect(filled.length).toBeGreaterThan(10);
 
     const count = rollbackFilled(rollback);

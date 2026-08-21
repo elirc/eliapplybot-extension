@@ -29,7 +29,10 @@ export type FieldKind =
   | "yearsOfExperience"
   | "unknown";
 
-export type ElementType = "input" | "textarea" | "select" | "radio" | "checkbox";
+// "combobox" is an ARIA dropdown with no native <select> behind it (react-select
+// on Greenhouse, the Ashby location picker); "buttongroup" is a set of answer
+// buttons standing in for a radio group (Ashby yes/no questions).
+export type ElementType = "input" | "textarea" | "select" | "radio" | "checkbox" | "combobox" | "buttongroup";
 
 export type DateParts = {
   month: number;

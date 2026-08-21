@@ -69,8 +69,12 @@ function buildPanel(result: FillResult, onClear: () => number): HTMLElement {
     copyButton.textContent = "Copied";
   });
 
+  panel.append(header);
+
+  const siteNote = siteNoteSection(result.site);
+  if (siteNote) panel.append(siteNote);
+
   panel.append(
-    header,
     mappingSection("Filled", result.filled),
     mappingSection("Unsure", result.unsure),
     mappingSection("Skipped", result.skipped),
@@ -78,6 +82,37 @@ function buildPanel(result: FillResult, onClear: () => number): HTMLElement {
   );
 
   return panel;
+}
+
+/**
+ * Honest caveats for sites this version only partly supports. Being upfront
+ * here matters more than looking capable: a user who trusts a green "Filled"
+ * count on Workday will submit a half-empty application.
+ */
+const SITE_NOTES: Record<string, { title: string; points: string[] }> = {
+  workday: {
+    title: "Workday support is partial",
+    points: [
+      'Text fields fill normally. Workday dropdowns do not: they are custom button[aria-haspopup="listbox"] widgets, not real <select> elements, and this version cannot fill them.',
+      "Workday is a multi-step wizard. Only the current step is scanned, so run autofill again after each Next.",
+      "Read every page before you submit. Nothing here clicks Continue, Submit, or uploads a resume."
+    ]
+  }
+};
+
+function siteNoteSection(site: string): HTMLElement | null {
+  const note = SITE_NOTES[site];
+  if (!note) return null;
+
+  const section = document.createElement("section");
+  section.className = "eam-section eam-note";
+  section.innerHTML = `
+    <h3 class="eam-note-title">Heads up: ${escapeHtml(note.title)}</h3>
+    <ul class="eam-note-list">
+      ${note.points.map((point) => `<li>${escapeHtml(point)}</li>`).join("")}
+    </ul>
+  `;
+  return section;
 }
 
 function mappingSection(title: string, mappings: FieldMapping[]): HTMLElement {

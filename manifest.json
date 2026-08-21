@@ -13,5 +13,12 @@
     "type": "module"
   },
   "options_page": "options.html",
-  "permissions": ["activeTab", "storage", "scripting"]
+  "permissions": ["activeTab", "storage", "scripting"],
+  "host_permissions": [
+    "https://boards.greenhouse.io/*",
+    "https://job-boards.greenhouse.io/*",
+    "https://jobs.lever.co/*",
+    "https://jobs.ashbyhq.com/*",
+    "https://*.myworkdayjobs.com/*"
+  ]
 }

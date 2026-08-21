@@ -18,7 +18,10 @@ It fills only high-confidence standardized fields after you click a button. It n
 - Injected review panel with filled, skipped, unsure, and missing required fields (Escape closes it)
 - On-demand content script injection — the extension no longer runs on every page, only on the tab where you click it
 - Site adapter stubs for Greenhouse, Lever, Workday, Ashby, plus a generic adapter
-- Local fake application page plus a 61-test suite (unit + jsdom integration against the fake page)
+- **Placeholder-profile guard** — autofill refuses to run while the active profile is still the sample data, so a first click on a real posting cannot type a fake identity into it (detection still works)
+- **Embedded application boards** — forms hosted in a cross-origin iframe on a company careers page are scanned in the frame, with counts summed across frames, and the direct frame URL is offered when the frame cannot be reached
+- Plain-language popup errors instead of raw Chrome messaging failures
+- Local fake application page plus a vitest suite (unit + jsdom integration against the fake page)
 
 ## Setup
 
@@ -51,6 +54,33 @@ Profiles from the previous single-profile format are migrated automatically into
 
 The starter profile lives in [src/shared/sampleProfile.ts](./src/shared/sampleProfile.ts). Use placeholder data until you are ready to add real local-only data.
 
+## Placeholder profile guard
+
+The starter profile is placeholder data (`Alex Example`, `alex.example@example.com`) and it is what a fresh install makes active. `Autofill current page` refuses to fill anything while the active profile still looks like that sample — the popup tells you to open `Manage profile versions` and enter your real details first. `Show detected fields` keeps working, so a page can still be explored safely before any real data exists.
+
+A profile counts as placeholder when its email is the sample address or any `@example.com` address, or when the first and last name are still the sample's.
+
+## Embedded application boards
+
+Company careers pages often host the real application form in a cross-origin iframe pointing at Greenhouse, Lever, Ashby, or Workday. The extension handles that in two layers:
+
+1. Whenever a frame finds no fillable fields, it looks for an iframe on one of the known board hosts and the popup reports the direct frame URL with an `Open the ... form in a new tab` button, rather than claiming "0 fields".
+2. With the host permissions below granted, the content script is injected into all frames and each frame is messaged by its own `frameId`. Filled, unsure, and skipped counts are summed across frames instead of taking whichever frame answers first.
+
+If a frame cannot be injected (permission not granted, frame refuses the script), the run falls back to layer 1 instead of failing.
+
+The manifest requests these `host_permissions`, and nothing else:
+
+```text
+https://boards.greenhouse.io/*
+https://job-boards.greenhouse.io/*
+https://jobs.lever.co/*
+https://jobs.ashbyhq.com/*
+https://*.myworkdayjobs.com/*
+```
+
+They exist only so Chrome allows injection into an embedded board frame on someone else's page, and the script is still only injected when you click a button in the popup. The extension makes no network requests of any kind. (To be precise about what the grant means rather than just what the code does: `host_permissions` do give extension pages the *capability* to fetch those five origins without CORS. Nothing in this codebase uses it — there is no `fetch`, `XMLHttpRequest`, or `WebSocket` anywhere in `src/`.)
+
 ## Test with the fake application page
 
 Run:
@@ -70,7 +100,7 @@ Click the extension icon and choose `Autofill current page`. Review the injected
 ## Run the automated tests
 
 ```sh
-npm test          # 61 vitest tests: matchers, schema, storage, filler, scanner, and an end-to-end jsdom run against the fake page
+npm test          # vitest: matchers, schema, storage, placeholder guard, embedded-board detection, popup aggregation, filler, scanner, and an end-to-end jsdom run against the fake page
 npm run typecheck
 ```
 
@@ -80,6 +110,7 @@ npm run typecheck
 - Resume upload, cover letter, and job-specific text fields are skipped in v1.
 - Medium and low confidence fields are shown for review instead of being filled.
 - Work authorization and EEO fields require clear labels and clearly matching options; yes/no answers are never typed into free-text fields.
-- The content script is injected only when you click the extension on a tab (`activeTab` + `scripting`) — there are no `<all_urls>` host permissions.
+- The content script is injected only when you click the extension on a tab (`activeTab` + `scripting`). The only `host_permissions` are the five application-board origins listed above; there is no `<all_urls>` access.
+- Autofill is blocked entirely while the active profile is still the placeholder sample.
 - The review panel's "Copy debug JSON" redacts anything you had already typed on the page.
 - No backend, API key, AI service, or remote storage is used.

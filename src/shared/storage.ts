@@ -27,6 +27,33 @@ export type ProfileSummary = {
   active: boolean;
 };
 
+// The sample profile is the active profile on first run, so autofill has to be able
+// to recognize it and refuse rather than type a placeholder identity into a real
+// application. Compared against sampleProfile itself so it stays correct if the
+// placeholder data changes.
+const RESERVED_EMAIL = /@(?:[^@\s]*\.)?example\.(?:com|net|org)$/;
+
+export function isSampleProfile(profile: CandidateProfile): boolean {
+  const personal = profile?.personal;
+  if (!personal) return false;
+
+  // example.com/net/org (and any subdomain) are reserved by RFC 2606 and can never
+  // be real mail, so treating them as placeholder data has no false-positive cost.
+  const email = normalize(personal.email);
+  if (email && (email === normalize(sampleProfile.personal.email) || RESERVED_EMAIL.test(email))) {
+    return true;
+  }
+
+  const firstName = normalize(personal.firstName);
+  const lastName = normalize(personal.lastName);
+  return (
+    !!firstName &&
+    !!lastName &&
+    firstName === normalize(sampleProfile.personal.firstName) &&
+    lastName === normalize(sampleProfile.personal.lastName)
+  );
+}
+
 export async function getStore(): Promise<ProfileStore> {
   const stored = await chrome.storage.local.get([STORE_KEY, LEGACY_PROFILE_KEY]);
   const store = stored[STORE_KEY];
@@ -138,6 +165,10 @@ export async function updateProfile(id: string, profile: CandidateProfile): Prom
 export async function resetProfile(id: string): Promise<CandidateProfile> {
   await updateProfile(id, sampleProfile);
   return sampleProfile;
+}
+
+function normalize(value: string | undefined): string {
+  return typeof value === "string" ? value.trim().toLowerCase() : "";
 }
 
 function persist(store: ProfileStore): Promise<void> {

@@ -138,3 +138,25 @@
 .eam-empty {
   color: #526071;
 }
+
+.eam-note {
+  background: #fff8e6;
+  border-bottom: 1px solid #e6cf94;
+  color: #4a3a12;
+}
+
+.eam-note-title {
+  margin: 0 0 6px;
+  font-size: 13px;
+}
+
+.eam-note-list {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 5px;
+}
+
+.eam-note-list li {
+  overflow-wrap: anywhere;
+}
