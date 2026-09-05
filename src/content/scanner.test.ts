@@ -31,7 +31,7 @@ describe("scanPage", () => {
     expect(findFieldElements(fields[0].id)).toHaveLength(2);
   });
 
-  it("keeps unnamed radio groups in separate containers apart", () => {
+  it("keeps unnamed radios independent rather than inventing exclusive groups", () => {
     document.body.innerHTML = `
       <div><div>
         <label><input type="radio" value="yes" /> Yes</label>
@@ -42,9 +42,8 @@ describe("scanPage", () => {
         <label><input type="radio" value="onsite" /> Onsite</label>
       </div></div>`;
     const fields = scanPage().filter((field) => field.elementType === "radio");
-    expect(fields).toHaveLength(2);
-    expect(fields[0].options).toHaveLength(2);
-    expect(fields[1].options).toHaveLength(2);
+    expect(fields).toHaveLength(4);
+    expect(fields.every((field) => field.options?.length === 1)).toBe(true);
   });
 
   it("skips hidden inputs", () => {

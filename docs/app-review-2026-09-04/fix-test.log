@@ -1,0 +1,38 @@
+
+> eli-apply-mate@0.3.0 test
+> vitest run --reporter=default --reporter=json --outputFile=docs/app-review-2026-09-04/fix-test-results.json
+
+
+ RUN  v3.2.7 C:/Users/Owner/Desktop/_Organized Desktop/08 App And Product Projects/eliapplybot
+
+ ✓ src/content/autofill.integration.test.ts (6 tests) 7344ms
+   ✓ autofill on the fake application page > fills contact information from the sample profile  2550ms
+   ✓ autofill on the fake application page > answers authorization selects from the profile  1295ms
+   ✓ autofill on the fake application page > fills experience, education, and exact years of experience  1088ms
+   ✓ autofill on the fake application page > selects saved EEO answers when the options match  663ms
+   ✓ autofill on the fake application page > never touches uploads, essays, or buttons  765ms
+   ✓ autofill on the fake application page > rolls back every value it filled  969ms
+ ✓ src/options/Options.test.tsx (12 tests) 1654ms
+   ✓ profile editor draft protection > R21 Rename saves valid pending changes instead of losing them  345ms
+ ✓ src/content/contentScript.test.ts (7 tests) 1193ms
+   ✓ content routing and review > R16 blocks first-run autofill without touching the page  344ms
+ ✓ src/content/review-regressions.test.ts (33 tests) 510ms
+ ✓ src/content/filler.test.ts (18 tests) 456ms
+ ✓ src/recorder/Recorder.test.tsx (5 tests) 241ms
+ ✓ src/recorder/database.test.ts (8 tests) 117ms
+ ✓ src/content/scanner.test.ts (5 tests) 193ms
+ ✓ src/content/react-forms.test.tsx (2 tests) 86ms
+ ✓ src/shared/storage.test.ts (10 tests) 85ms
+ ✓ src/shared/storage.regressions.test.ts (9 tests) 50ms
+ ✓ src/recorder/engine.test.ts (7 tests) 61ms
+ ✓ src/popup/Popup.test.tsx (3 tests) 39ms
+ ✓ src/shared/fieldMatchers.test.ts (25 tests) 28ms
+ ✓ src/shared/profileSchema.test.ts (8 tests) 29ms
+ ✓ src/sites/index.test.ts (8 tests) 6ms
+
+ Test Files  16 passed (16)
+      Tests  166 passed (166)
+   Start at  14:37:10
+   Duration  23.72s (transform 2.45s, setup 171ms, collect 3.92s, tests 12.09s, environment 5.00s, prepare 744ms)
+
+JSON report written to C:/Users/Owner/Desktop/_Organized Desktop/08 App And Product Projects/eliapplybot/docs/app-review-2026-09-04/fix-test-results.json

@@ -1,0 +1,96 @@
+{
+  "checks": [
+    {
+      "name": "Manifest version and permissions",
+      "success": true,
+      "detail": {
+        "manifest_version": 3,
+        "name": "eli apply mate",
+        "description": "Local, cautious autofill for personal job applications. Never submits.",
+        "version": "0.2.0",
+        "minimum_chrome_version": "120",
+        "action": {
+          "default_title": "eli apply mate",
+          "default_popup": "popup.html"
+        },
+        "background": {
+          "service_worker": "serviceWorker.js",
+          "type": "module"
+        },
+        "options_page": "options.html",
+        "permissions": [
+          "activeTab",
+          "storage",
+          "scripting"
+        ]
+      }
+    },
+    {
+      "name": "Packaged entry exists: popup.html",
+      "success": true
+    },
+    {
+      "name": "Packaged entry exists: options.html",
+      "success": true
+    },
+    {
+      "name": "Packaged entry exists: serviceWorker.js",
+      "success": true
+    },
+    {
+      "name": "Packaged entry exists: contentScript.js",
+      "success": true
+    },
+    {
+      "name": "Local built resource: /assets/popup-Ikl_y0hj.js",
+      "success": true
+    },
+    {
+      "name": "Local built resource: /assets/storage-Dvuh5ZrO.js",
+      "success": true
+    },
+    {
+      "name": "Local built resource: /assets/popup-C-lWhocF.css",
+      "success": true
+    },
+    {
+      "name": "No inline executable script: popup.html",
+      "success": true
+    },
+    {
+      "name": "Local built resource: /assets/options-C0VSAAi-.js",
+      "success": true
+    },
+    {
+      "name": "Local built resource: /assets/storage-Dvuh5ZrO.js",
+      "success": true
+    },
+    {
+      "name": "Local built resource: /assets/options-srqaWaKz.css",
+      "success": true
+    },
+    {
+      "name": "No inline executable script: options.html",
+      "success": true
+    },
+    {
+      "name": "Content bundle parses as an injected classic script",
+      "success": true
+    },
+    {
+      "name": "Packaged service worker registers and handles installation",
+      "success": true
+    },
+    {
+      "name": "Popup and options bundles produced",
+      "success": true
+    },
+    {
+      "name": "Local test page serves successfully over HTTP",
+      "success": true,
+      "detail": {
+        "status": 200
+      }
+    }
+  ]
+}

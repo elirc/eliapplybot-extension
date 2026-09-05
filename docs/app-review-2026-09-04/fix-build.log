@@ -1,0 +1,30 @@
+
+> eli-apply-mate@0.3.0 build
+> npm run clean && npm run typecheck && vite build && node scripts/build-extension.mjs
+
+
+> eli-apply-mate@0.3.0 clean
+> rimraf dist
+
+
+> eli-apply-mate@0.3.0 typecheck
+> tsc --noEmit
+
+vite v7.3.6 building client environment for production...
+transforming...
+✓ 41 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/recorder.html                   0.54 kB │ gzip:  0.33 kB
+dist/popup.html                      0.55 kB │ gzip:  0.31 kB
+dist/options.html                    0.65 kB │ gzip:  0.33 kB
+dist/assets/popup-CZVhXiui.css       1.35 kB │ gzip:  0.60 kB
+dist/assets/recorder-D1j9r_yk.css    1.74 kB │ gzip:  0.77 kB
+dist/assets/options-h3nNXp1p.css     2.73 kB │ gzip:  1.03 kB
+dist/assets/download-COQNz5w7.js     0.30 kB │ gzip:  0.24 kB
+dist/assets/storage-CNVjovY6.js      0.91 kB │ gzip:  0.47 kB
+dist/assets/popup-eI0R1XvY.js        3.69 kB │ gzip:  1.62 kB
+dist/assets/recorder-B_gp7cjJ.js    14.37 kB │ gzip:  5.39 kB
+dist/assets/options-DrIcrGrE.js     14.86 kB │ gzip:  5.12 kB
+dist/assets/client-BlLbKLl4.js     142.60 kB │ gzip: 45.93 kB
+✓ built in 4.89s

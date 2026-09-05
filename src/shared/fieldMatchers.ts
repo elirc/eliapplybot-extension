@@ -1,314 +1,120 @@
-import type { CandidateProfile, DetectedField, FieldKind, FieldMapping } from "./types";
+import type { CandidateProfile, DateParts, DetectedField, FieldKind, FieldMapping } from "./types";
 
-type MatchCandidate = Pick<FieldMapping, "kind" | "confidence" | "reason" | "value">;
-
-type MatchContext = {
-  field: DetectedField;
-  /** Everything near the field, including sibling labels — good for section context only. */
-  text: string;
-  /** The field's own label, name, id, and placeholder — required for high-confidence matches. */
-  own: string;
-  profile: CandidateProfile;
-};
-
-const SKIP_PATTERNS = [
-  /\bresume\b/i,
-  /\bcv\b/i,
-  /\bcover letter\b/i,
-  /\bwriting sample\b/i,
-  /\bportfolio upload\b/i,
-  /\battachment\b/i,
-  /\bfile upload\b/i
-];
-
-const SHORT_ANSWER_PATTERNS = [
-  /\bwhy\b.*\b(company|role|team|us)\b/i,
-  /\btell us\b/i,
-  /\bdescribe\b/i,
-  /\bstory\b/i,
-  /\bproject\b/i,
-  /\bessay\b/i,
-  /\bcover letter\b/i
-];
-
-const YES_VALUES = ["yes", "y", "true"];
-const NO_VALUES = ["no", "n", "false"];
-
+type Candidate = Pick<FieldMapping, "kind" | "confidence" | "reason" | "value">;
 export function normalizeText(value: string | undefined): string {
-  return (value ?? "")
-    .toLowerCase()
-    .replace(/[_\-./]+/g, " ")
-    .replace(/[^a-z0-9+# ]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
+  return (value ?? "").toLowerCase().replace(/[_\-./[\]]+/g, " ").replace(/[^a-z0-9+# ]+/g, " ").replace(/\s+/g, " ").trim();
 }
+const high = (kind: FieldKind, value: string | undefined, reason: string): Candidate => value?.trim() ?
+  { kind, value, confidence: "high", reason } : { kind, confidence: "medium", reason: "No saved value. Complete this field manually." };
+const review = (kind: FieldKind, reason: string): Candidate => ({ kind, confidence: "medium", reason });
+const skip = (reason: string): Candidate => ({ kind: "unknown", confidence: "skip", reason });
 
 export function mapFields(fields: DetectedField[], profile: CandidateProfile): FieldMapping[] {
-  return fields.map((field) => mapField(field, profile));
+  const mappings = fields.map((field) => mapField(field, profile));
+  // Repeated history sections cannot be reliably associated with profile rows from
+  // arbitrary IDs. Do not silently repeat entry zero, including the first row.
+  const counts = new Map<FieldKind, number>();
+  for (const mapping of mappings) if (/^(education|experience)/.test(mapping.kind)) counts.set(mapping.kind, (counts.get(mapping.kind) ?? 0) + 1);
+  return mappings.map((mapping) => (counts.get(mapping.kind) ?? 0) > 1 ? {
+    ...mapping, value: undefined, confidence: "medium", reason: "Repeated history fields need manual matching to the correct profile entry."
+  } : mapping);
 }
 
 export function mapField(field: DetectedField, profile: CandidateProfile): FieldMapping {
-  const text = buildFieldText(field);
-  const context: MatchContext = { field, text, own: buildOwnText(field), profile };
-  const base = {
-    fieldId: field.id,
-    labelText: field.labelText
-  };
+  const label = normalizeText(field.labelText);
+  const metadata = normalizeText([field.name, field.idAttribute].join(" "));
+  const own = label || metadata || normalizeText(field.placeholder);
+  const section = normalizeText(field.sectionText);
+  const context = `${own} ${section}`;
+  const base = { fieldId: field.id, labelText: field.labelText };
+  const result = (mapping: Candidate): FieldMapping => ({ ...base, ...mapping });
+  if (field.disabled || field.readOnly) return result(skip("Disabled, read-only, and custom autocomplete controls are left unchanged."));
+  if (["file", "password", "hidden", "submit", "button", "reset", "image"].includes(field.inputType ?? "")) return result(skip("Protected controls, uploads, and buttons are never filled."));
+  if (/\b(resume|cv|cover letter|writing sample|attachment|file upload|portfolio upload)\b/.test(own)) return result(skip("Uploads and application documents are handled manually."));
+  if (field.elementType === "textarea" || /\b(why|describe|tell us|explain|essay|story)\b/.test(own)) return result(skip("Open-ended and job-specific answers require your own response."));
+  if (/\b(reference|referee|emergency|supervisor|recruiter|manager|password|username|login|verification|otp|contact person)\b/.test(context)) return result(skip("This may request another person's details or account credentials."));
+  if (field.valueBefore?.trim()) return result(skip("Existing answers are preserved. Clear the field yourself to replace one."));
+  if (field.elementType === "checkbox" || field.elementType === "radio") return result(review("unknown", "Select these choices manually so the site's state and consent remain under your control."));
 
-  if (field.inputType === "submit" || field.inputType === "button" || field.inputType === "reset") {
-    return { ...base, kind: "unknown", confidence: "skip", reason: "Button controls are never clicked or filled." };
+  const auth = /\b(legally authorized|authorized to work|eligible to work)\b/.test(own);
+  const sponsor = /\b(sponsorship|work visa)\b/.test(own);
+  if (auth || sponsor) {
+    const kind = auth ? "workAuthorization" : "sponsorship";
+    const country = "(?:united states(?: of america)?|u s a|u s|usa|us)";
+    const clearAuthorization = new RegExp(`^(?:are you (?:currently )?)?(?:legally )?(?:authorized|eligible) to work in (?:the )?${country}$`).test(own);
+    const clearSponsorship = new RegExp(`^(?:(?:will|do) you )?(?:now or in the future )?(?:require|need) (?:visa |employment |work )?sponsorship (?:now or in the future )?(?:to work |for (?:work|employment) )?in (?:the )?${country}(?: now or in the future)?$`).test(own);
+    const us = auth ? clearAuthorization : clearSponsorship;
+    const unknownCountry = /\b(canada|uk|united kingdom|germany|europe|australia|india|other countr|any countr)\b/.test(own);
+    if (!us || unknownCountry || (auth && sponsor) || /\b(not|without|unable|unless|except|only|citizen|citizenship)\b/.test(own)) return result(review(kind, "Only clear, affirmative US authorization questions can use these saved answers."));
+    if (sponsor && !/\b(require|need)\b/.test(own)) return result(review(kind, "The sponsorship question does not clearly match the saved answer."));
+    const value = booleanOption(field, auth ? profile.authorization.legallyAuthorizedUS : profile.authorization.requiresSponsorshipNowOrFuture);
+    return result(value ? high(kind, value, "Matched an affirmative US question and explicit yes/no options.") : review(kind, "Choose the authorization answer manually; options are not a clear yes/no pair."));
   }
-
-  if (field.inputType === "file" || SKIP_PATTERNS.some((pattern) => pattern.test(text))) {
-    return { ...base, kind: "unknown", confidence: "skip", reason: "File uploads, resumes, and cover letters are skipped in v1." };
-  }
-
-  if (field.elementType === "textarea" && SHORT_ANSWER_PATTERNS.some((pattern) => pattern.test(text))) {
-    return { ...base, kind: "unknown", confidence: "skip", reason: "Job-specific long-form answers are intentionally skipped." };
-  }
-
-  const personal = matchPersonal(context);
-  if (personal) return { ...base, ...personal };
-
-  const authorization = matchAuthorization(context);
-  if (authorization) return { ...base, ...authorization };
-
-  const eeo = matchEeo(context);
-  if (eeo) return { ...base, ...eeo };
-
-  const experienceYears = matchExperienceYears(context);
-  if (experienceYears) return { ...base, ...experienceYears };
-
-  const education = matchEducation(context);
-  if (education) return { ...base, ...education };
-
-  const experience = matchExperience(context);
-  if (experience) return { ...base, ...experience };
-
-  return { ...base, kind: "unknown", confidence: "low", reason: "No deterministic v1 mapping matched this field." };
-}
-
-function buildFieldText(field: DetectedField): string {
-  return normalizeText(
-    [
-      field.labelText,
-      field.nearbyText,
-      field.sectionText,
-      field.name,
-      field.idAttribute,
-      field.placeholder,
-      ...(field.options ?? [])
-    ].join(" ")
-  );
-}
-
-function buildOwnText(field: DetectedField): string {
-  return normalizeText([field.labelText, field.name, field.idAttribute, field.placeholder].join(" "));
-}
-
-function matchPersonal({ own: label, text, profile }: MatchContext): MatchCandidate | null {
-  const personal = profile.personal;
-
-  if (/\b(first|given)\s*name\b/.test(label)) {
-    return high("firstName", personal.firstName, "Matched first/given name label.");
-  }
-  if (/\b(last|family|surname)\s*name\b/.test(label)) {
-    return high("lastName", personal.lastName, "Matched last/family name label.");
-  }
-  if (/^name$|^\*?\s*name\s*\*?$|\bfull name\b/.test(label)) {
-    return high("fullName", `${personal.firstName} ${personal.lastName}`, "Matched full name label.");
-  }
-  if (/\b(e mail|email|email address)\b/.test(label)) {
-    return high("email", personal.email, "Matched email label.");
-  }
-  if (/\b(phone|mobile|telephone)\b/.test(label)) {
-    return high("phone", personal.phone, "Matched phone label.");
-  }
-  if (/\b(linkedin|linked in)\b/.test(label)) {
-    return high("linkedin", personal.linkedin, "Matched LinkedIn label.");
-  }
-  if (/\b(github|git hub)\b/.test(label) && personal.github) {
-    return high("github", personal.github, "Matched GitHub label.");
-  }
-  if (/\b(portfolio|personal website|website|web site)\b/.test(label) && personal.portfolio) {
-    return high("portfolio", personal.portfolio, "Matched portfolio or website label.");
-  }
-  // "address" alone is too broad (email address, employer address); require a
-  // residence-flavored qualifier and exclude email labels and company contexts.
-  const looksLikeLocation =
-    /\b(location|city)\b/.test(label) || /\b(street|home|mailing|current|residential)\s+address\b/.test(label);
-  if (looksLikeLocation && !/\b(e mail|email)\b/.test(label) && !/\b(company|employer)\b/.test(text)) {
-    return high("location", personal.location, "Matched location/address label.");
-  }
-
-  return null;
-}
-
-function matchAuthorization({ field, own, text, profile }: MatchContext): MatchCandidate | null {
-  const hasClearYesNo = hasRecognizedYesNo(field);
-  const authorizationPattern = /\b(legally authorized|authorized to work|eligible to work)\b/;
-  const sponsorshipPattern = /\b(sponsorship|visa sponsorship|work visa)\b/;
-
-  // High confidence needs the question in the field's own label; matching on
-  // nearby text alone would grab neighboring questions in the same section.
-  if (authorizationPattern.test(own)) {
-    if (!hasClearYesNo) {
-      return medium("workAuthorization", "Authorization field found, but options are not a clear yes/no set.");
-    }
-    return high(
-      "workAuthorization",
-      profile.authorization.legallyAuthorizedUS ? "Yes" : "No",
-      "Matched a clear work authorization yes/no question."
-    );
-  }
-
-  if (sponsorshipPattern.test(own) && /\b(require|need|now|future)\b/.test(own)) {
-    if (!hasClearYesNo) {
-      return medium("sponsorship", "Sponsorship field found, but options are not a clear yes/no set.");
-    }
-    return high(
-      "sponsorship",
-      profile.authorization.requiresSponsorshipNowOrFuture ? "Yes" : "No",
-      "Matched a clear sponsorship yes/no question."
-    );
-  }
-
-  if (authorizationPattern.test(text)) {
-    return medium("workAuthorization", "Authorization question found nearby, but not in this field's own label.");
-  }
-  if (sponsorshipPattern.test(text) && /\b(require|need|now|future)\b/.test(text)) {
-    return medium("sponsorship", "Sponsorship question found nearby, but not in this field's own label.");
-  }
-
-  return null;
-}
-
-function matchEeo({ field, own, profile }: MatchContext): MatchCandidate | null {
-  if (!field.options || field.options.length === 0) return null;
-
-  const eeoChecks: Array<[RegExp, FieldKind, string | undefined, string]> = [
-    [/\bgender\b/, "eeoGender", profile.eeo.gender, "Matched EEO gender field with a saved option."],
-    [/\b(race|ethnicity|hispanic|latino)\b/, "eeoRace", profile.eeo.raceEthnicity, "Matched EEO race/ethnicity field with a saved option."],
-    [/\b(veteran|protected veteran)\b/, "eeoVeteran", profile.eeo.veteranStatus, "Matched EEO veteran field with a saved option."],
-    [/\b(disability|disabled)\b/, "eeoDisability", profile.eeo.disabilityStatus, "Matched EEO disability field with a saved option."]
+  const eeo: Array<[RegExp, FieldKind, string | undefined]> = [
+    [/\bgender\b/, "eeoGender", profile.eeo.gender], [/\b(race|ethnicity)\b/, "eeoRace", profile.eeo.raceEthnicity],
+    [/\bveteran\b/, "eeoVeteran", profile.eeo.veteranStatus], [/\b(disability|disabled)\b/, "eeoDisability", profile.eeo.disabilityStatus]
   ];
-
-  // EEO fields sit side by side on the same form, so only the field's own
-  // label is trustworthy — nearby text would match every sibling question.
-  for (const [pattern, kind, value, reason] of eeoChecks) {
-    if (pattern.test(own)) {
-      if (value && optionExists(field, value)) return high(kind, value, reason);
-      return medium(kind, `Saved EEO value does not clearly match available options for ${kind}.`);
-    }
+  for (const [pattern, kind, value] of eeo) if (pattern.test(own)) {
+    const option = value && field.options?.find((o) => normalizeText(o) === normalizeText(value));
+    return result(option ? high(kind, option, "The saved EEO answer exactly matches an available option.") : review(kind, "No saved EEO answer exactly matches this field."));
   }
-
-  return null;
+  if (/\b(years?|yrs?)\b/.test(own) && /\b(experience|exp)\b/.test(own)) {
+    const skills = Object.entries(profile.experienceYears).sort((a, b) => normalizeText(b[0]).length - normalizeText(a[0]).length);
+    const match = skills.find(([skill]) => {
+      const normalized = normalizeText(skill);
+      return normalized && new RegExp(`(?:^|[^a-z0-9+#])${normalized.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?=$|[^a-z0-9+#])`).test(own);
+    });
+    return result(match ? high("yearsOfExperience", String(match[1]), "Matched an exact saved skill.") : review("yearsOfExperience", "No exact saved skill matches this question."));
+  }
+  const educationContext = /\b(education|school|university|college|degree|study)\b/.test(context);
+  const employmentContext = /\b(experience|employment|employer|company|work history|position)\b/.test(context);
+  if (educationContext && employmentContext && /\b(start|end|from|to|date|month|year|location)\b/.test(own)) return result(review("unknown", "Education and employment context conflict. Review manually."));
+  if (educationContext && profile.education.length) {
+    const entry = profile.education[0];
+    if (/^(?:school|university|college|institution)(?: (?:or )?(?:school|university|college|institution))?(?: name)?$/.test(own)) return result(high("educationSchool", entry.school, "Matched the school label."));
+    if (/^(?:degree|qualification)(?: name| type)?$/.test(own)) return result(high("educationDegree", entry.degree, "Matched the degree label."));
+    if (/^(?:field of study|major|discipline)$/.test(own)) return result(high("educationFieldOfStudy", entry.fieldOfStudy, "Matched the field of study."));
+    if (/\b(start|from)\b/.test(own) && /\b(date|month|year)\b/.test(own)) return result(dateMapping("educationStartDate", entry.start, field, own));
+    if (/\b(end|to|graduation|graduate)\b/.test(own) && /\b(date|month|year)\b/.test(own)) return result(dateMapping("educationEndDate", entry.end, field, own));
+  }
+  if (employmentContext && profile.experience.length) {
+    const entry = profile.experience[0];
+    if ((/\b(previous|past|former)\b/.test(own) && entry.current) || (/\bcurrent\b/.test(own) && !entry.current)) return result(review("unknown", "This question's current/past role does not match the first saved employment entry."));
+    if (/^(?:(?:current|previous|past) )?(?:employer(?: company)?|company|organization)(?: name)?$/.test(own)) return result(high("experienceCompany", entry.company, "Matched the employer name."));
+    if (/^(?:(?:current|previous|job|position) )?(?:title|position|role)$/.test(own)) return result(high("experienceTitle", entry.title, "Matched the employment title."));
+    if (/^(?:(?:job|work|employment|company|employer) )?(?:location|city)$/.test(own)) return result(high("experienceLocation", entry.location, "Matched employment location."));
+    if (/\b(start|from)\b/.test(own) && /\b(date|month|year)\b/.test(own)) return result(dateMapping("experienceStartDate", entry.start, field, own));
+    if (/\b(end|to)\b/.test(own) && /\b(date|month|year)\b/.test(own)) return result(entry.current ? review("experienceEndDate", "Mark this as a current role manually; do not invent an end date.") : dateMapping("experienceEndDate", entry.end, field, own));
+  }
+  const personal = profile.personal;
+  const autocomplete = normalizeText(field.autocomplete?.split(/\s+/).pop());
+  if (/^(?:(?:your|legal|preferred) )?(?:first|given) name$/.test(own) || (!label && autocomplete === "given name")) return result(high("firstName", personal.firstName, "Matched first name."));
+  if (/^(?:(?:your|legal) )?(?:(?:last|family) name|surname)$/.test(own) || (!label && autocomplete === "family name")) return result(high("lastName", personal.lastName, "Matched last name."));
+  if (/^(?:(?:your|legal) )?(?:full )?name$/.test(own)) return result(high("fullName", `${personal.firstName} ${personal.lastName}`.trim(), "Matched full name."));
+  if (/^(?:(?:your|contact|personal) )?(?:e mail|email)(?: address)?$/.test(own)) return result(high("email", personal.email, "Matched candidate email."));
+  if (/^(?:(?:your|contact|personal|primary) )?(?:phone|mobile|telephone)(?: number)?$/.test(own)) return result(high("phone", personal.phone, "Matched candidate phone."));
+  if (/^(?:your )?(?:linkedin|linked in)(?: profile| url| profile url)?$/.test(own)) return result(high("linkedin", personal.linkedin, "Matched LinkedIn profile."));
+  if (/^(?:your )?(?:github|git hub)(?: profile| url)?$/.test(own)) return result(high("github", personal.github, "Matched GitHub profile."));
+  if (/^(?:your )?(?:portfolio(?: website| url)?|personal website|website|web site)$/.test(own) && !employmentContext) return result(high("portfolio", personal.portfolio, "Matched personal website."));
+  if (/^(?:(?:your|current|home|residential) )?location$/.test(own) && !employmentContext) return result(high("location", personal.location, "Matched general location."));
+  if (/\b(address|city|postal|zip)\b/.test(own)) return result(review("location", "The profile has a location summary, not a structured mailing address."));
+  return result({ kind: "unknown", confidence: "low", reason: "No unambiguous mapping. Complete this field manually." });
 }
-
-function matchExperienceYears({ own, profile }: MatchContext): MatchCandidate | null {
-  // The question must be in the field's own label; gating on nearby text would
-  // let one "Years of X" question capture every field in the same section.
-  if (!/\b(years?|yrs?)\b/.test(own) || !/\b(experience|exp)\b/.test(own)) return null;
-
-  // Whole-word matches only ("java" must not match "javascript"); when several
-  // saved skills match, the longest one wins so "node.js" beats "js".
-  let best: { skill: string; years: number } | null = null;
-  for (const [skill, years] of Object.entries(profile.experienceYears)) {
-    const normalizedSkill = normalizeText(skill);
-    if (!normalizedSkill) continue;
-    const pattern = new RegExp(`\\b${escapeRegExp(normalizedSkill)}\\b`);
-    if (pattern.test(own) && (!best || normalizedSkill.length > normalizeText(best.skill).length)) {
-      best = { skill, years };
-    }
-  }
-
-  if (best) {
-    return high("yearsOfExperience", String(best.years), `Matched exact saved years of experience skill: ${best.skill}.`);
-  }
-
-  return medium("yearsOfExperience", "Years-of-experience field found, but no exact saved skill matched.");
+function booleanOption(field: DetectedField, answer: boolean): string | undefined {
+  const yes = field.options?.find((o) => ["yes", "y", "true"].includes(normalizeText(o)));
+  const no = field.options?.find((o) => ["no", "n", "false"].includes(normalizeText(o)));
+  return yes && no ? answer ? yes : no : undefined;
 }
-
-function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-function matchEducation({ own, text, profile }: MatchContext): MatchCandidate | null {
-  const education = profile.education[0];
-  if (!education) return null;
-  // Section context may come from nearby text, but the specific column must be
-  // named in the field's own label so sibling fields don't cross-match.
-  const inEducation = /\b(education|school|university|college|degree|study)\b/.test(text);
-  if (!inEducation) return null;
-
-  if (/\b(school|university|college|institution)\b/.test(own)) {
-    return high("educationSchool", education.school, "Matched education school field.");
-  }
-  if (/\b(degree|qualification)\b/.test(own)) {
-    return high("educationDegree", education.degree, "Matched education degree field.");
-  }
-  if (/\b(field of study|major|discipline)\b/.test(own) && education.fieldOfStudy) {
-    return high("educationFieldOfStudy", education.fieldOfStudy, "Matched education field of study.");
-  }
-  if (/\b(start|from)\b/.test(own) && /\b(date|month|year)\b/.test(own)) {
-    return high("educationStartDate", formatDate(education.start), "Matched education start date.");
-  }
-  if (/\b(end|to|graduation|graduate)\b/.test(own) && /\b(date|month|year)\b/.test(own)) {
-    return high("educationEndDate", education.end ? formatDate(education.end) : "", "Matched education end date.");
-  }
-
-  return null;
-}
-
-function matchExperience({ own, text, profile }: MatchContext): MatchCandidate | null {
-  const experience = profile.experience[0];
-  if (!experience) return null;
-  const inExperience = /\b(experience|employment|employer|company|job|work history|position)\b/.test(text);
-  if (!inExperience) return null;
-
-  if (/\b(company|employer|organization)\b/.test(own)) {
-    return high("experienceCompany", experience.company, "Matched work experience company field.");
-  }
-  if (/\b(title|position|role)\b/.test(own)) {
-    return high("experienceTitle", experience.title, "Matched work experience title field.");
-  }
-  if (/\b(location|city)\b/.test(own) && experience.location) {
-    return high("experienceLocation", experience.location, "Matched work experience location field.");
-  }
-  if (/\b(start|from)\b/.test(own) && /\b(date|month|year)\b/.test(own)) {
-    return high("experienceStartDate", formatDate(experience.start), "Matched work experience start date.");
-  }
-  if (/\b(end|to)\b/.test(own) && /\b(date|month|year)\b/.test(own)) {
-    return high("experienceEndDate", experience.current ? "Present" : formatDate(experience.end), "Matched work experience end date.");
-  }
-
-  return null;
-}
-
-function high(kind: FieldKind, value: string | undefined, reason: string): MatchCandidate {
-  return { kind, confidence: "high", value, reason };
-}
-
-function medium(kind: FieldKind, reason: string): MatchCandidate {
-  return { kind, confidence: "medium", reason };
-}
-
-function formatDate(date: { month: number; year: number } | null): string {
-  if (!date) return "";
-  return `${String(date.month).padStart(2, "0")}/${date.year}`;
-}
-
-function hasRecognizedYesNo(field: DetectedField): boolean {
-  // Typing a literal "Yes"/"No" into a free-text control is risky, so bare
-  // inputs and textareas are never treated as a clear yes/no set; they fall
-  // back to medium (review-only) in the callers.
-  if (!field.options || field.options.length === 0) return false;
-
-  const normalizedOptions = field.options.map(normalizeText).filter(Boolean);
-  return normalizedOptions.some((option) => YES_VALUES.includes(option)) && normalizedOptions.some((option) => NO_VALUES.includes(option));
-}
-
-function optionExists(field: DetectedField, value: string): boolean {
-  const normalizedValue = normalizeText(value);
-  return (field.options ?? []).some((option) => normalizeText(option) === normalizedValue);
+function dateMapping(kind: FieldKind, date: DateParts | null, field: DetectedField, label: string): Candidate {
+  if (!date) return review(kind, "No saved end date. Complete or mark this section current manually.");
+  if (field.inputType === "date") return review(kind, "The profile has month/year only. A complete calendar date needs your review.");
+  let value: string;
+  if (field.inputType === "month") value = `${date.year}-${String(date.month).padStart(2, "0")}`;
+  else if (/\byear\b/.test(label) && !/\bmonth\b/.test(label)) value = String(date.year);
+  else if (/\bmonth\b/.test(label) && !/\byear\b/.test(label)) {
+    const monthName = new Date(Date.UTC(2000, date.month - 1, 1)).toLocaleString("en-US", { month: "long", timeZone: "UTC" });
+    value = field.options?.find((o) => [String(date.month), String(date.month).padStart(2, "0"), monthName.toLowerCase(), monthName.slice(0, 3).toLowerCase()].includes(normalizeText(o))) ?? String(date.month);
+  } else if (field.inputType === "number") return review(kind, "This numeric date field needs a specific month or year label.");
+  else value = `${String(date.month).padStart(2, "0")}/${date.year}`;
+  return high(kind, value, "Matched the date component and native control format.");
 }

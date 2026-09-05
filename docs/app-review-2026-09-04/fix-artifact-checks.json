@@ -1,0 +1,165 @@
+{
+  "version": "0.3.0",
+  "checks": [
+    {
+      "name": "Manifest, package and lockfile versions agree",
+      "success": true
+    },
+    {
+      "name": "Only on-demand page access is required",
+      "success": true
+    },
+    {
+      "name": "Tab audio permission is optional",
+      "success": true
+    },
+    {
+      "name": "Packaged entry exists: popup.html",
+      "success": true
+    },
+    {
+      "name": "Packaged entry exists: options.html",
+      "success": true
+    },
+    {
+      "name": "Packaged entry exists: recorder.html",
+      "success": true
+    },
+    {
+      "name": "Packaged entry exists: serviceWorker.js",
+      "success": true
+    },
+    {
+      "name": "Packaged entry exists: contentScript.js",
+      "success": true
+    },
+    {
+      "name": "Icon 16 has the correct PNG dimensions",
+      "success": true
+    },
+    {
+      "name": "Icon 32 has the correct PNG dimensions",
+      "success": true
+    },
+    {
+      "name": "Icon 48 has the correct PNG dimensions",
+      "success": true
+    },
+    {
+      "name": "Icon 128 has the correct PNG dimensions",
+      "success": true
+    },
+    {
+      "name": "Local built resource: popup.html → /assets/popup-eI0R1XvY.js",
+      "success": true
+    },
+    {
+      "name": "Local built resource: popup.html → /assets/client-BlLbKLl4.js",
+      "success": true
+    },
+    {
+      "name": "Local built resource: popup.html → /assets/storage-CNVjovY6.js",
+      "success": true
+    },
+    {
+      "name": "Local built resource: popup.html → /assets/popup-CZVhXiui.css",
+      "success": true
+    },
+    {
+      "name": "No inline executable script: popup.html",
+      "success": true
+    },
+    {
+      "name": "Local built resource: options.html → /assets/options-DrIcrGrE.js",
+      "success": true
+    },
+    {
+      "name": "Local built resource: options.html → /assets/client-BlLbKLl4.js",
+      "success": true
+    },
+    {
+      "name": "Local built resource: options.html → /assets/storage-CNVjovY6.js",
+      "success": true
+    },
+    {
+      "name": "Local built resource: options.html → /assets/download-COQNz5w7.js",
+      "success": true
+    },
+    {
+      "name": "Local built resource: options.html → /assets/options-h3nNXp1p.css",
+      "success": true
+    },
+    {
+      "name": "No inline executable script: options.html",
+      "success": true
+    },
+    {
+      "name": "Local built resource: recorder.html → /assets/recorder-B_gp7cjJ.js",
+      "success": true
+    },
+    {
+      "name": "Local built resource: recorder.html → /assets/client-BlLbKLl4.js",
+      "success": true
+    },
+    {
+      "name": "Local built resource: recorder.html → /assets/download-COQNz5w7.js",
+      "success": true
+    },
+    {
+      "name": "Local built resource: recorder.html → /assets/recorder-D1j9r_yk.css",
+      "success": true
+    },
+    {
+      "name": "No inline executable script: recorder.html",
+      "success": true
+    },
+    {
+      "name": "Content bundle parses as an injected classic script",
+      "success": true
+    },
+    {
+      "name": "Packaged service worker handles installation",
+      "success": true
+    },
+    {
+      "name": "Worker rejects other extension senders",
+      "success": true
+    },
+    {
+      "name": "Content scripts cannot mutate profiles",
+      "success": true
+    },
+    {
+      "name": "Content scripts cannot export recovery data",
+      "success": true
+    },
+    {
+      "name": "Worker initializes an unconfigured blank profile",
+      "success": true
+    },
+    {
+      "name": "Extension page profile mutation succeeds",
+      "success": true
+    },
+    {
+      "name": "All three UI bundles produced",
+      "success": true
+    },
+    {
+      "name": "Production page served over HTTP: popup.html",
+      "success": true
+    },
+    {
+      "name": "Production page served over HTTP: options.html",
+      "success": true
+    },
+    {
+      "name": "Production page served over HTTP: recorder.html",
+      "success": true
+    },
+    {
+      "name": "Content script served as JavaScript",
+      "success": true
+    }
+  ]
+}

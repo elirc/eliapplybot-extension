@@ -1,3 +1,5 @@
+> Historical learning material (v0.1/v0.2). For current v0.3 behavior, storage, recording, and test commands, see [Current architecture](../ARCHITECTURE.md).
+
 # User Story Build Path
 
 This suite gives you ten real feature tickets for `eli apply mate`, a local Chrome extension for cautious job-application autofill (`README.md:1-15`, `manifest.json:1-24`). Use these stories as build practice, not as reading assignments.

@@ -1,3 +1,5 @@
+> Historical learning material (v0.1/v0.2). For current v0.3 behavior, storage, recording, and test commands, see [Current architecture](../ARCHITECTURE.md).
+
 # Tier 1 Junior Missions
 
 ### Mission 1: The App's Heartbeat

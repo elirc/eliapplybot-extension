@@ -1,3 +1,5 @@
+> Historical learning material (v0.1/v0.2). For current v0.3 behavior, storage, recording, and test commands, see [Current architecture](../ARCHITECTURE.md).
+
 # Architectural Cartographer
 
 This suite is a top-down onboarding map for `eli apply mate`, a local Chrome Extension Manifest V3 project whose manifest declares a popup, options page, background service worker, content script, `activeTab` and `storage` permissions, and all-URL content-script matching (`manifest.json:1-24`). The repo uses npm scripts for Vite dev/build, TypeScript checking, Vitest tests, and a fake local application page (`package.json:7-14`).

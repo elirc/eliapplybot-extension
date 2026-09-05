@@ -1,0 +1,19 @@
+Baseline verification recorded from the terminal run on 2026-09-04.
+Command: npm test
+Vitest: 1.6.1
+
+src/shared/profileSchema.test.ts: 8 passed
+src/shared/fieldMatchers.test.ts: 25 passed
+src/content/filler.test.ts: 7 passed
+src/content/scanner.test.ts: 5 passed
+src/shared/storage.test.ts: 10 passed
+src/content/autofill.integration.test.ts: 6 passed
+
+Test Files: 6 passed (6)
+Tests: 61 passed (61)
+Start: 13:24:57 local time
+Duration: 51.02 seconds
+Exit code: 0
+
+The separate production build also passed, including tsc --noEmit.
+See build.log for its captured terminal output.

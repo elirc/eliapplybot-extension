@@ -46,6 +46,9 @@ export type DetectedField = {
   name?: string;
   idAttribute?: string;
   placeholder?: string;
+  autocomplete?: string;
+  disabled?: boolean;
+  readOnly?: boolean;
   options?: string[];
   required?: boolean;
   valueBefore?: string;
@@ -68,6 +71,8 @@ export type FillResult = {
   detected: DetectedField[];
   site: string;
   profileName: string;
+  warnings?: string[];
+  mode?: "detect" | "fill" | "cleared";
 };
 
 export type CandidateProfile = {

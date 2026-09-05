@@ -1,3 +1,5 @@
+> Historical learning material (v0.1/v0.2). For current v0.3 behavior, storage, recording, and test commands, see [Current architecture](../ARCHITECTURE.md).
+
 # Mission 25: Write the Docs That Don't Exist
 
 ## Doc 1: Junior Onboarding Checklist

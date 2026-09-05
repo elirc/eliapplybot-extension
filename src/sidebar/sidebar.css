@@ -80,7 +80,15 @@
   cursor: pointer;
   font: inherit;
   padding: 7px 10px;
+  overflow-wrap: anywhere;
+  max-width: 100%;
 }
+
+.eam-button:focus-visible { outline: 3px solid #2563eb; outline-offset: 2px; }
+.eam-button:disabled { opacity: .55; cursor: not-allowed; }
+.eam-header > .eam-button { margin: 6px 4px 0 0; }
+.eam-item + .eam-item { margin-top: 8px; }
+@media (max-width: 360px) { .eam-counts { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 
 .eam-button:hover {
   background: #eef2f7;

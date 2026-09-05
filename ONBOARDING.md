@@ -1,3 +1,5 @@
+> Historical v0.2 onboarding. The current implementation is v0.3; start with [Current architecture](docs/ARCHITECTURE.md) and the [fix verification report](docs/app-review-2026-09-04/FIXES.md).
+
 # Developer Onboarding
 
 This document is for two developers joining `eli apply mate`:

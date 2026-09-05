@@ -1,119 +1,79 @@
-import type { DetectedField, ElementType, SiteAdapter } from "../shared/types";
-import { getBestLabel, getControlValue, getNearbyText, getOptionLabel, getSectionText } from "./domLabels";
+import type { DetectedField, SiteAdapter } from "../shared/types";
+import { getBestLabel, getChoiceQuestion, getControlValue, getNearbyText, getOptionLabel, getSectionText, isControl, isInput, isSelect, type Control } from "./domLabels";
 
-const FIELD_ID_ATTR = "data-eli-apply-mate-field-id";
-
-export function scanPage(adapter?: SiteAdapter): DetectedField[] {
-  const fields: DetectedField[] = [];
-  let index = 0;
-
-  const groupedNames = new Set<string>();
-  const groupInputs = Array.from(document.querySelectorAll<HTMLInputElement>("input[type='radio'], input[type='checkbox']"));
-
-  for (const input of groupInputs) {
-    if (!isVisible(input)) continue;
-    const groupKey = getGroupKey(input);
-    if (groupedNames.has(groupKey)) continue;
-    groupedNames.add(groupKey);
-
-    const members = groupInputs.filter((candidate) => getGroupKey(candidate) === groupKey && isVisible(candidate));
-    const id = `eam-field-${index++}`;
-    for (const member of members) member.setAttribute(FIELD_ID_ATTR, id);
-
-    const first = members[0];
-    const field = normalize(adapter, {
-      id,
-      elementType: first.type === "radio" ? "radio" : "checkbox",
-      inputType: first.type,
-      labelText: getBestLabel(first),
-      nearbyText: getNearbyText(first),
-      sectionText: getSectionText(first),
-      name: first.name || undefined,
-      idAttribute: first.id || undefined,
-      options: members.map(getOptionLabel).filter(Boolean),
-      required: members.some((member) => member.required),
-      valueBefore: members.filter((member) => member.checked).map(getOptionLabel).join(", ")
-    });
-    fields.push(field);
+const identities = new WeakMap<object, number>();
+let nextId = 1;
+let controlsById = new Map<string, Control[]>();
+let warnings: string[] = [];
+function identity(value: object): number {
+  if (!identities.has(value)) identities.set(value, nextId++);
+  return identities.get(value)!;
+}
+export function isVisible(element: HTMLElement): boolean {
+  if (!element.isConnected) return false;
+  let current: HTMLElement | null = element;
+  while (current) {
+    const style = current.ownerDocument.defaultView?.getComputedStyle(current);
+    if (current.hidden || current.hasAttribute("inert") || style?.display === "none" || style?.visibility === "hidden" || style?.visibility === "collapse") return false;
+    current = current.parentElement ?? ((current.getRootNode() as ShadowRoot).host as HTMLElement | undefined) ?? null;
   }
-
-  const controls = Array.from(document.querySelectorAll<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>("input, textarea, select"));
-  for (const control of controls) {
-    if (!isVisible(control)) continue;
-    if (control instanceof HTMLInputElement && (control.type === "radio" || control.type === "checkbox")) continue;
-    if (control instanceof HTMLInputElement && control.type === "hidden") continue;
-
-    const id = `eam-field-${index++}`;
-    control.setAttribute(FIELD_ID_ATTR, id);
-    const elementType = getElementType(control);
-
-    const field = normalize(adapter, {
-      id,
-      elementType,
-      inputType: control instanceof HTMLInputElement ? control.type : undefined,
-      labelText: getBestLabel(control),
-      nearbyText: getNearbyText(control),
-      sectionText: getSectionText(control),
-      name: control.getAttribute("name") ?? undefined,
-      idAttribute: control.getAttribute("id") ?? undefined,
-      placeholder: control.getAttribute("placeholder") ?? undefined,
-      options: control instanceof HTMLSelectElement ? Array.from(control.options).map((option) => option.text).filter(Boolean) : undefined,
-      required: control.required || control.getAttribute("aria-required") === "true",
-      valueBefore: getControlValue(control)
-    });
-    fields.push(field);
-  }
-
-  return fields;
-}
-
-export function findFieldElements(fieldId: string): Array<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement> {
-  return Array.from(document.querySelectorAll(`[${FIELD_ID_ATTR}="${CSS.escape(fieldId)}"]`)).filter(
-    (element): element is HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement =>
-      element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement || element instanceof HTMLSelectElement
-  );
-}
-
-function getElementType(control: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement): ElementType {
-  if (control instanceof HTMLTextAreaElement) return "textarea";
-  if (control instanceof HTMLSelectElement) return "select";
-  return "input";
-}
-
-function getGroupKey(input: HTMLInputElement): string {
-  const fieldset = input.closest("fieldset");
-  const fieldsetText = fieldset?.querySelector("legend")?.textContent?.trim() ?? "";
-  // Unnamed inputs outside a fieldset would otherwise all collapse into one
-  // page-wide group; scope them to their nearest structural container instead.
-  const structuralKey = input.name || fieldset ? "" : getStructuralKey(input);
-  return [input.type, input.name, fieldsetText, input.form?.id, structuralKey].join("|");
-}
-
-const structuralKeys = new WeakMap<Element, number>();
-let nextStructuralKey = 1;
-
-function getStructuralKey(input: HTMLInputElement): string {
-  const container =
-    input.closest("[role='radiogroup'], [role='group']") ??
-    input.parentElement?.parentElement ??
-    input.parentElement ??
-    input;
-  let key = structuralKeys.get(container);
-  if (key === undefined) {
-    key = nextStructuralKey++;
-    structuralKeys.set(container, key);
-  }
-  return `container-${key}`;
-}
-
-function isVisible(element: HTMLElement): boolean {
-  if (element.hidden) return false;
-  const style = window.getComputedStyle(element);
-  if (style.display === "none" || style.visibility === "hidden") return false;
+  const frame = element.ownerDocument.defaultView?.frameElement;
+  if (frame && !isVisible(frame as HTMLElement)) return false;
   const rect = element.getBoundingClientRect();
   return rect.width > 0 && rect.height > 0;
 }
-
-function normalize(adapter: SiteAdapter | undefined, field: DetectedField): DetectedField {
-  return adapter?.normalizeField ? adapter.normalizeField(field) : field;
+export function scanPage(adapter?: SiteAdapter): DetectedField[] {
+  const controls: Control[] = [];
+  warnings = [];
+  const walk = (root: Document | ShadowRoot) => {
+    for (const element of root.querySelectorAll("*")) {
+      if (element.id === "eli-apply-mate-sidebar") continue;
+      if (isControl(element) && isVisible(element)) controls.push(element);
+      if (element.shadowRoot && element.id !== "eli-apply-mate-sidebar") walk(element.shadowRoot);
+      if (element.tagName === "IFRAME") {
+        try {
+          const doc = (element as HTMLIFrameElement).contentDocument;
+          if (doc) walk(doc); else warnings.push("An embedded form cannot be inspected. Review its fields manually.");
+        } catch { warnings.push("An embedded form cannot be inspected. Review its fields manually."); }
+      }
+      if (element.matches("[role='combobox'],[role='listbox'],[contenteditable='true']") && !isSelect(element)) warnings.push("Custom form widgets need manual review.");
+    }
+  };
+  walk(document);
+  controlsById = new Map();
+  const groups = new Map<string, HTMLInputElement[]>();
+  const singles: Control[] = [];
+  for (const control of controls) {
+    if (isInput(control) && control.type === "hidden") continue;
+    if (isInput(control) && control.type === "radio" && control.name) {
+      const scope = control.form ?? control.getRootNode();
+      const key = `${identity(scope)}:${control.name}`;
+      const group = groups.get(key) ?? []; group.push(control); groups.set(key, group);
+    } else singles.push(control);
+  }
+  const fields: DetectedField[] = [];
+  for (const elements of [...groups.values(), ...singles.map((c) => [c])]) {
+    const first = elements[0];
+    const choice = isInput(first) && ["radio", "checkbox"].includes(first.type);
+    const id = `eam-field-${identity(first)}`;
+    controlsById.set(id, elements);
+    const field: DetectedField = {
+      id, elementType: choice ? first.type as "radio" | "checkbox" : isSelect(first) ? "select" : first.tagName === "TEXTAREA" ? "textarea" : "input",
+      inputType: isInput(first) ? first.type : undefined,
+      labelText: choice && first.type === "radio" ? getChoiceQuestion(first) || getBestLabel(first) : getBestLabel(first),
+      nearbyText: getNearbyText(first), sectionText: getSectionText(first),
+      name: first.name || undefined, idAttribute: first.id || undefined,
+      placeholder: first.getAttribute("placeholder") ?? undefined,
+      autocomplete: first.getAttribute("autocomplete") ?? undefined,
+      disabled: elements.every((e) => e.matches(":disabled")),
+      readOnly: first.hasAttribute("readonly") || first.getAttribute("role") === "combobox" || first.getAttribute("aria-readonly") === "true",
+      options: choice ? elements.map((e) => getOptionLabel(e as HTMLInputElement)) : isSelect(first) ? Array.from(first.options).filter((o) => !o.disabled).map((o) => o.text) : undefined,
+      required: elements.some((e) => e.required || e.getAttribute("aria-required") === "true"),
+      valueBefore: choice ? elements.filter((e) => (e as HTMLInputElement).checked).map((e) => getOptionLabel(e as HTMLInputElement)).join(", ") : getControlValue(first)
+    };
+    fields.push(adapter?.normalizeField ? adapter.normalizeField(field) : field);
+  }
+  return fields;
 }
+export function findFieldElements(id: string): Control[] { return (controlsById.get(id) ?? []).filter((e) => isVisible(e)); }
+export function getScanWarnings(): string[] { return [...new Set(warnings)]; }

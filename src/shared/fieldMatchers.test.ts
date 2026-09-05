@@ -58,19 +58,20 @@ describe("contact fields", () => {
     expect(mapping.confidence).toBe("high");
   });
 
-  it("does not treat a bare 'Address' label as the personal location", () => {
+  it("leaves a bare address for review", () => {
     const mapping = mapField(field({ labelText: "Address" }), sampleProfile);
-    expect(mapping.kind).not.toBe("location");
+    expect(mapping.confidence).not.toBe("high");
   });
 
-  it("maps mailing address to location", () => {
+  it("leaves mailing address for review", () => {
     const mapping = mapField(field({ labelText: "Mailing address" }), sampleProfile);
     expect(mapping.kind).toBe("location");
+    expect(mapping.confidence).toBe("medium");
   });
 
   it("does not map an employer address to the personal location", () => {
     const mapping = mapField(field({ labelText: "City", nearbyText: "Current employer address" }), sampleProfile);
-    expect(mapping.kind).not.toBe("location");
+    expect(mapping.confidence).not.toBe("high");
   });
 });
 
@@ -104,7 +105,7 @@ describe("authorization", () => {
     const mapping = mapField(
       field({
         elementType: "select",
-        labelText: "Will you now or in the future require sponsorship?",
+        labelText: "Will you now or in the future require sponsorship in the United States?",
         options: ["", "Yes", "No"]
       }),
       sampleProfile
@@ -189,8 +190,9 @@ describe("years of experience", () => {
   it("matches skills containing regex metacharacters", () => {
     const profile = profileWith({ experienceYears: { "c++": 6 } });
     const mapping = mapField(field({ labelText: "Years of C++ experience" }), profile);
-    // normalizeText strips "+" from the page text as well, so both sides align.
     expect(mapping.kind).toBe("yearsOfExperience");
+    expect(mapping.value).toBe("6");
+    expect(mapping.confidence).toBe("high");
   });
 });
 
@@ -213,13 +215,14 @@ describe("education and experience", () => {
     expect(title.kind).toBe("experienceTitle");
   });
 
-  it("formats a current role's end date as Present", () => {
+  it("leaves a current role's end date for manual review", () => {
     const mapping = mapField(
       field({ labelText: "Experience end date", nearbyText: "Employment history" }),
       sampleProfile
     );
     expect(mapping.kind).toBe("experienceEndDate");
-    expect(mapping.value).toBe("Present");
+    expect(mapping.confidence).toBe("medium");
+    expect(mapping.value).toBeUndefined();
   });
 
   it("returns low-confidence unknown when nothing matches", () => {

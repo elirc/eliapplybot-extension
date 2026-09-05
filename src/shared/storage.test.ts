@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { installChromeMock } from "../test/chromeMock";
 import { sampleProfile } from "./sampleProfile";
+import { blankProfile } from "./profileDefaults";
 import {
   MAX_PROFILES,
   createProfile,
@@ -23,23 +24,24 @@ beforeEach(() => {
 });
 
 describe("profile store", () => {
-  it("initializes with a Default version built from the sample profile", async () => {
+  it("initializes with an unconfigured blank Default version", async () => {
     const store = await getStore();
     expect(store.profiles).toHaveLength(1);
     expect(store.profiles[0].name).toBe("Default");
     expect(store.activeId).toBe(store.profiles[0].id);
-    expect(await getActiveProfile()).toEqual(sampleProfile);
+    expect(await getActiveProfile()).toEqual(blankProfile);
+    expect(store.profiles[0].configured).toBe(false);
     expect(await getActiveProfileName()).toBe("Default");
   });
 
-  it("migrates a legacy single-profile key and removes it", async () => {
+  it("migrates a legacy single-profile key and retains the backup", async () => {
     const legacy: CandidateProfile = structuredClone(sampleProfile);
     legacy.personal.firstName = "Legacy";
     mock.data.candidateProfile = legacy;
 
     const store = await getStore();
     expect(store.profiles[0].profile.personal.firstName).toBe("Legacy");
-    expect(mock.data.candidateProfile).toBeUndefined();
+    expect(mock.data.candidateProfile).toEqual(legacy);
   });
 
   it("creates versions, makes them active, and keeps names unique", async () => {
@@ -118,7 +120,7 @@ describe("profile store", () => {
     const store = await getStore();
     const first = store.profiles.find((entry) => entry.name === "Default");
     const updated = store.profiles.find((entry) => entry.id === second.id);
-    expect(first?.profile.personal.email).toBe(sampleProfile.personal.email);
+    expect(first?.profile.personal.email).toBe("");
     expect(updated?.profile.personal.email).toBe("second@example.com");
   });
 });

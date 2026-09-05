@@ -1,3 +1,5 @@
+> Historical learning material (v0.1/v0.2). For current v0.3 behavior, storage, recording, and test commands, see [Current architecture](../ARCHITECTURE.md).
+
 # Architectural Cartographer Journal
 
 ## First-Pass Mental Model

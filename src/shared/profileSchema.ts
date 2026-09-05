@@ -5,7 +5,7 @@ export type ValidationResult = {
   errors: string[];
 };
 
-export function validateProfileDetailed(value: unknown): ValidationResult {
+export function validateProfileDetailed(value: unknown, allowDraft = false): ValidationResult {
   const errors: string[] = [];
 
   if (!isRecord(value)) {
@@ -27,6 +27,19 @@ export function validateProfileDetailed(value: unknown): ValidationResult {
   }
 
   const authorization = value.authorization;
+  if (isRecord(personal)) {
+    for (const key of ["firstName", "lastName", "email"] as const) {
+      if (!allowDraft && typeof personal[key] === "string" && !personal[key].trim()) errors.push(`personal.${key} cannot be empty.`);
+    }
+    if (typeof personal.email === "string" && personal.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(personal.email)) errors.push("personal.email must be a valid email address.");
+    for (const key of ["linkedin", "github", "portfolio"] as const) {
+      const url = personal[key];
+      if (typeof url === "string" && url.trim()) {
+        try { if (!["https:", "http:"].includes(new URL(url).protocol)) throw new Error(); }
+        catch { errors.push(`personal.${key} must be a complete http or https URL.`); }
+      }
+    }
+  }
   if (!isRecord(authorization)) {
     errors.push("authorization must be an object.");
   } else {
@@ -66,6 +79,7 @@ export function validateProfileDetailed(value: unknown): ValidationResult {
       }
       validateDateParts(entry.start, `education[${index}].start`, errors);
       if (entry.end !== null) validateDateParts(entry.end, `education[${index}].end`, errors, "or null");
+      validateDateOrder(entry.start, entry.end, `education[${index}]`, errors);
     });
   }
 
@@ -87,6 +101,9 @@ export function validateProfileDetailed(value: unknown): ValidationResult {
       if (typeof entry.current !== "boolean") errors.push(`experience[${index}].current must be true or false.`);
       validateDateParts(entry.start, `experience[${index}].start`, errors);
       if (entry.end !== null) validateDateParts(entry.end, `experience[${index}].end`, errors, "or null");
+      validateDateOrder(entry.start, entry.end, `experience[${index}]`, errors);
+      if (entry.current === true && entry.end !== null) errors.push(`experience[${index}].end must be null for a current role.`);
+      if (entry.current === false && entry.end === null) errors.push(`experience[${index}].end is required for a past role.`);
       if (entry.description !== undefined) {
         if (!Array.isArray(entry.description) || entry.description.some((line) => typeof line !== "string")) {
           errors.push(`experience[${index}].description must be an array of strings when present.`);
@@ -100,6 +117,7 @@ export function validateProfileDetailed(value: unknown): ValidationResult {
     errors.push("experienceYears must be an object mapping skill names to numbers.");
   } else {
     for (const [skill, years] of Object.entries(experienceYears)) {
+      if (!skill.trim()) errors.push("experienceYears skill names cannot be empty.");
       if (typeof years !== "number" || !Number.isFinite(years) || years < 0) {
         errors.push(`experienceYears["${skill}"] must be a non-negative number.`);
       }
@@ -154,4 +172,10 @@ function validateDateParts(value: unknown, path: string, errors: string[], suffi
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function validateDateOrder(start: unknown, end: unknown, path: string, errors: string[]): void {
+  if (!isRecord(start) || !isRecord(end)) return;
+  if (typeof start.year === "number" && typeof start.month === "number" && typeof end.year === "number" && typeof end.month === "number" &&
+      end.year * 12 + end.month < start.year * 12 + start.month) errors.push(`${path}.end cannot precede its start.`);
 }

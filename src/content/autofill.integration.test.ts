@@ -80,7 +80,7 @@ describe("autofill on the fake application page", () => {
     expect(input("experience_company").value).toBe("Example Software Co.");
     expect(input("experience_title").value).toBe("Frontend Engineer");
     expect(input("experience_start_date").value).toBe("06/2022");
-    expect(input("experience_end_date").value).toBe("Present");
+    expect(input("experience_end_date").value).toBe("");
     expect(input("react_years").value).toBe("4");
     expect(input("education_school").value).toBe("Example University");
     expect(input("education_degree").value).toBe("Bachelor of Science");

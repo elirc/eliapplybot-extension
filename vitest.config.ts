@@ -4,6 +4,8 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     globals: true,
-    setupFiles: ["src/test/setupDom.ts"]
+    setupFiles: ["src/test/setupDom.ts"],
+    pool: "forks",
+    poolOptions: { forks: { singleFork: true } }
   }
 });

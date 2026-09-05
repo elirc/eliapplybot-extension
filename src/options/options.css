@@ -44,6 +44,7 @@ body {
 }
 
 .version-name {
+  overflow-wrap: anywhere;
   font-weight: 700;
 }
 
@@ -54,6 +55,7 @@ body {
 }
 
 .editor-pane {
+  min-width: 0;
   display: grid;
   grid-template-rows: auto 1fr;
   gap: 10px;
@@ -138,7 +140,7 @@ button.secondary {
 textarea {
   width: 100%;
   min-height: 0;
-  resize: none;
+  resize: vertical;
   border: 1px solid #cbd5e1;
   border-radius: 6px;
   background: #ffffff;
@@ -163,3 +165,16 @@ textarea {
   border-color: #d79a9a;
   background: #fff3f3;
 }
+
+.profile-fields { border: 0; padding: 12px 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.profile-fields label, .json-label { display: grid; gap: 6px; }
+.profile-fields input, .profile-fields select { min-width: 0; width: 100%; padding: 9px; border: 1px solid #9aa8bb; border-radius: 6px; font: inherit; }
+.guided-profile summary { cursor: pointer; font-weight: 650; }
+button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 3px solid #2563eb; outline-offset: 2px; }
+@media (max-width: 780px) {
+  .options-body { grid-template-columns: minmax(0, 1fr); }
+  .options-header { align-items: flex-start; flex-direction: column; }
+  .version-list { max-height: 180px; }
+  .options-actions { flex-wrap: wrap; }
+}
+@media (max-width: 450px) { .profile-fields { grid-template-columns: 1fr; } .options-shell { padding: 12px; } }

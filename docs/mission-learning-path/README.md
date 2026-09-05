@@ -1,3 +1,5 @@
+> Historical learning material (v0.1/v0.2). For current v0.3 behavior, storage, recording, and test commands, see [Current architecture](../ARCHITECTURE.md).
+
 # Mission Learning Path
 
 This suite is a training campaign for `eli apply mate`, a local Chrome extension that fills job application forms only after explicit user action (`manifest.json:3-23`, `src/popup/Popup.tsx:47-56`). You are not reading passively. Each mission asks you to trace code, annotate behavior, answer review questions, and connect the system pieces.
